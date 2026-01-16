@@ -1,0 +1,9 @@
+{
+  "hello-world": "Hola Mundo",
+  "welcome-message": "¡Bienvenido a mi aplicación Next.js!",
+  "loading": "Cargando...",
+
+  // Pages
+  "home-title": "Inicio | Aplicación Next.js",
+  "home-description": "Generado por Next.js"
+}
