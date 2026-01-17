@@ -1,0 +1,49 @@
+[Unit]
+Description=Next.js Chat App
+After=network.target
+
+[Service]
+User=root
+Group=root
+
+# Absolute where your project is located in the server
+WorkingDirectory=/root/my-next-chat-app
+
+# Critical and necessary environment variables
+Environment=PATH=/root/.nvm/versions/node/<your-node-version>/bin:/usr/bin:/usr/local/bin
+Environment=NODE_ENV=production
+Environment=BASEPATH=
+Environment=NEXT_PUBLIC_APP_DEV_URL=http://localhost:3000
+Environment=NEXT_PUBLIC_APP_PROD_URL=https://my-next-chat-app.com
+
+Environment=DB_LOCAL_USERNAME=<your-db-user>
+Environment=DB_LOCAL_PASSWORD=<your-db-password>
+Environment=DB_LOCAL_NAME=<your-db-name>
+Environment=DB_LOCAL_HOST=<your-db-host-ip-or-domain>
+Environment=DB_LOCAL_PORT=<your-db-port>
+Environment=DB_LOCAL_URI=<your-db-connection-uri>
+
+Environment=CI_DB_USERNAME=
+Environment=CI_DB_PASSWORD=
+Environment=CI_DB_NAME=
+Environment=CI_DB_HOST=
+Environment=CI_DB_PORT=
+
+Environment=DB_PROD_USERNAME=<your-prod-db-user>
+Environment=DB_PROD_PASSWORD=<your-prod-db-password>
+Environment=DB_PROD_NAME=<your-prod-db-name>
+Environment=DB_PROD_HOST=<your-prod-db-host-ip-or-domain>
+Environment=DB_PROD_PORT=<your-prod-db-port>
+Environment=DB_PROD_URI=<your-prod-db-connection-uri>
+
+Environment=PORT=3000
+
+# This project uses `yarn` for managing packages but you can use any other.
+ExecStart=/root/.nvm/versions/node/<your-node-version>/bin/yarn start
+
+# Reiniciar automáticamente si falla
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
