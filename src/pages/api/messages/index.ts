@@ -8,7 +8,11 @@ export default async function handler(
 ) {
   try {
     const { from, to } = req.query;
-    const connection = new Sequelize(process.env.DB_LOCAL_URI || '', {
+    const DB_URI = process.env.NODE_ENV === 'production'
+      ? process.env.DB_PROD_URI
+      : process.env.DB_LOCAL_URI;
+
+    const connection = new Sequelize(DB_URI || '', {
       dialect: 'mysql',
       protocol: 'mysql',
       logging: false
@@ -30,7 +34,7 @@ export default async function handler(
       );
 
       if ( ! sender.length || ! receiver.length ) {
-         return res.status(404).json({ msg: 'Users not found' });
+        return res.status(404).json({ msg: 'Users not found' });
       }
 
       const userFrom: User = sender[0] as User;
@@ -61,11 +65,10 @@ export default async function handler(
       return res.status(200).json({ messages });
     }
 
-
     if ( data ) return res.status(200).json({ messages: data });
     else return res.status(400).json({ msg: 'Failed to get messages from the database' });
   } catch (ex) {
-    // console.log(ex)
+    // console.log(ex);
     return res.status(400).json({ msg: 'An error has ocurred', ex });
   }
 }

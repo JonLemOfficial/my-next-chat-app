@@ -8,7 +8,7 @@ export default async function POST(
   try {
     const { from, to, message } = req.body;
     const DB_URI = process.env.NODE_ENV === 'production'
-      ? process.env.DB_LOCAL_URI
+      ? process.env.DB_PROD_URI
       : process.env.DB_LOCAL_URI;
 
     const connection = new Sequelize(DB_URI || '', {
