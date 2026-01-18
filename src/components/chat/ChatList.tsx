@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,24 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useSidebar } from '@/components/ui/sidebar';
 
 import { useChat } from '@/hooks/useChat';
 
 function ChatList() {
   
   const { currentUser, chats, activeChat } = useChat();
-  const { isMobile, setOpenMobile } = useSidebar();
   const router = useRouter();
 
   const handleLogout = () => {
     localStorage.removeItem('chat-user');
     router.push('/');
   };
-
-  useEffect(() => {
-    if ( isMobile ) setOpenMobile(false);
-  });
 
   const getAvatarUrl = (avatarId: string) => {
     return PlaceHolderImages.find((img) => img.id === avatarId)?.imageUrl || '';
