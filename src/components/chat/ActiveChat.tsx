@@ -30,7 +30,7 @@ export default function ActiveChat() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-hidden relative">
       <header className="flex items-center gap-3 border-b p-4 bg-gray-200 shrink-0 z-10 sticky top-0">
-        <SidebarTrigger className="md:hidden" />
+        <SidebarTrigger className="md:hidden hover:bg-gray-300 rounded-full cursor-pointer" />
         <h2 className="text-lg font-semibold">
           Chat público
         </h2>
