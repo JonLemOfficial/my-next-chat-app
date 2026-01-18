@@ -92,7 +92,7 @@ function ChatPage() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      const user = { ...userProfile, key: userProfile?.id, id: socket.id! };
+      const user = { ...userProfile, key: parseInt(userProfile?.id), id: socket.id! };
       setCurrentUser(user);
       socket.emit('join', user);
 
