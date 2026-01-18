@@ -57,24 +57,24 @@ function ChatList() {
                 {currentUser.username}
               </h2>
             </div>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
+                <TooltipTrigger asChild> */}
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleLogout}
-                    className="h-8 w-8 cursor-pointer"
+                    className="h-8 w-8 hover:bg-gray-300 rounded-full cursor-pointer"
                   >
                     <LogOut className="h-4 w-4" />
                     <span className="sr-only">Logout</span>
                   </Button>
-                </TooltipTrigger>
+                {/* </TooltipTrigger>
                 <TooltipContent>
                   <p>Logout</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </div>
         )}
       </div>

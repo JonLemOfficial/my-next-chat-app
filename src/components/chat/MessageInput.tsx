@@ -27,7 +27,7 @@ export default function MessageInput() {
         autoComplete="off"
         className="text-base bg-white"
       />
-      <Button type="submit" size="icon" aria-label="Send Message">
+      <Button className="hover:bg-gray-300 rounded-full cursor-pointer" type="submit" size="icon" aria-label="Send Message">
         <Send className="h-5 w-5" />
       </Button>
     </form>
