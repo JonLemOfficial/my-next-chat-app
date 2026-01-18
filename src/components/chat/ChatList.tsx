@@ -1,22 +1,22 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
-import { useChat } from '@/hooks/useChat';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useSidebar } from '@/components/ui/sidebar';
-import { User } from '@/types/user';
+
+import { useChat } from '@/hooks/useChat';
 
 function ChatList() {
   
-  const { currentUser, chats, activeChat, setActiveChatUser } = useChat();
-    const { isMobile, setOpenMobile } = useSidebar();
+  const { currentUser, chats, activeChat } = useChat();
+  const { isMobile, setOpenMobile } = useSidebar();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -24,12 +24,9 @@ function ChatList() {
     router.push('/');
   };
 
-  const handleSelectChat = (user: User) => {
-    setActiveChatUser(user);
-    if (isMobile) {
-      setOpenMobile(false);
-    }
-  };
+  useEffect(() => {
+    if ( isMobile ) setOpenMobile(false);
+  });
 
   const getAvatarUrl = (avatarId: string) => {
     return PlaceHolderImages.find((img) => img.id === avatarId)?.imageUrl || '';
@@ -57,10 +54,10 @@ function ChatList() {
         {currentUser && (
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
+              <Avatar className="h-12 w-12 bg-white">
                 <AvatarImage src={getAvatarUrl(currentUser.username)} alt={currentUser.username}/>
                 <AvatarFallback>
-                    {currentUser.username.charAt(0)}
+                  {currentUser.username.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <h2 className="text-lg font-semibold">
@@ -88,48 +85,47 @@ function ChatList() {
           </div>
         )}
       </div>
+      <p className="py-2 px-4 text-sm text-center border-black border-b-1">
+        Usuarios en este chat
+      </p>
       <ScrollArea className="flex-1 bg-white">
-        <div className="flex flex-col gap-1 p-2">
-          {sortedChats.map(({ user, messages, unreadCount }) => {
-            const lastMessage = messages[messages.length - 1];
+        <div
+          className={cn(
+            'flex flex-col',
+            sortedChats.length === 0 ? 'items-center justify-center h-100 p-3' : ''
+          )}
+        >
+          {sortedChats.length > 0 && sortedChats.map(({ user }) => {
             return (
-              <button
-                key={user.key}
-                onClick={() => handleSelectChat(user)}
-                className={cn(
-                  'flex items-center gap-3 rounded-md p-2 text-left transition-colors hover:bg-muted cursor-pointer hover:bg-gray-50',
-                  activeChat?.user.username === user.username && 'bg-gray-100'
-                )}
+              <div
+                key={user.username}
+                className="flex items-center p-2 text-left transition-colors hover:bg-muted hover:bg-gray-50 border-b-1 border-gray-200"
               >
-                <Avatar>
+                <Avatar className="h-10 w-10 rounded-circle bg-gray-200 mr-3">
                   <AvatarImage
                     className={
-                        cn(
-                            'rounded-circle',
-                            activeChat?.user.username === user.username && 'bg-white'
-                        )
+                      cn(
+                        'rounded-circle',
+                        activeChat?.user.username === user.username && 'bg-white'
+                      )
                     }
                     src={getAvatarUrl(user.username)}
                     alt={user.username}
                   />
-                  <AvatarFallback>{user.username.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>
+                    {user.username.charAt(0).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 truncate">
                   <p className="font-semibold">{user.username}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {lastMessage
-                      ? `${lastMessage.sender.username === currentUser?.username ? 'Tú: ' : ''}${lastMessage.text}`
-                      : 'No hay mensajes aún'}
-                  </p>
                 </div>
-                {unreadCount > 0 && (
-                  <Badge className="bg-red-100 text-accent-foreground hover:bg-red-200">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </button>
+              </div>
             );
-          })}
+          }) || (
+            <div className='text-sm text-center'>
+              <p>No existen otros usuarios en este chat.</p>
+            </div>
+          )}
         </div>
       </ScrollArea>
     </div>

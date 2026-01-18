@@ -84,15 +84,15 @@ export default function handler(
           sent_at: new Date(Date.now()),
         };
 
-        // console.log('Sending message:', newMessage);
-        const receiverSocketId = userSocketMap.get(newMessage.receiver.username);
+        userSocketMap.forEach((socketId, username) => {
+            if ( username !== newMessage.sender.username ) {
+                io.to(socketId).emit('receive-message', newMessage);
+            }
+        });
+        
         const senderSocketId = userSocketMap.get(newMessage.sender.username);
 
-        if ( receiverSocketId ) {
-            io.to(receiverSocketId).emit('receive-message', newMessage);
-        }
-
-        if ( senderSocketId && senderSocketId !== receiverSocketId ) {
+        if ( senderSocketId ) {
             io.to(senderSocketId).emit('receive-message', newMessage);
         }
       });

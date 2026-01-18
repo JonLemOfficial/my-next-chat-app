@@ -1,36 +1,56 @@
 'use client';
 
-import { useState, ReactElement as JSX } from 'react';
+// ** Dependencies
+import { useState, ReactElement as JSX, ReactEventHandler, SyntheticEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageSquareText } from 'lucide-react';
-import { profiles } from '@/lib/profiles';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+
+// ** Components
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+// ** Hooks
+import { useApi } from '@/hooks/useApi';
 
 function HomePage(): JSX {
 
-  const [ selectedProfile, setSelectedProfile ] = useState<string>('');
+  const [ username, setUsername ] = useState<string>('');
+  const [ isValidUsername, setIsValidUsername ] = useState<boolean>(false);
+
+  const apiClient = useApi();
   const router = useRouter();
 
-  const handleEnterChat = () => {
-    if ( selectedProfile ) {
-      localStorage.setItem('chat-user', selectedProfile);
-      router.push('/chat');
+  const handleSubmit = async (e: SyntheticEvent) => {
+    e.preventDefault();
+
+    if ( username ) {
+      const response = await apiClient.post('/api/user', { username });
+
+      if ( response.data ) {
+        localStorage.setItem('chat-user', username);
+        router.push('/chat');
+      } else {
+        alert('Ocurrio un error inesperado al ingresar.');
+      }
     }
+  };
+
+  const handleUsernameChange = (user: string) => {
+    setUsername(() => user.toLowerCase().trim());
+
+    if ( ! /^[a-zA-Z0-9_-]*$/.test(user) ) {
+      alert('El nombre de usuario es invalido: ' + user, );
+      setIsValidUsername(() => false);
+      return;
+    }
+
+    if ( user === '' ) {
+      setIsValidUsername(() => false);
+      return;
+    }
+
+    setIsValidUsername(() => true);
   };
 
   return (
@@ -42,28 +62,22 @@ function HomePage(): JSX {
           </div>
           <p>{process.env.NODE_ENV}</p>
           <CardTitle className="text-3xl font-bold">Chat app</CardTitle>
-          <CardDescription>Seleccione un perfil para empezar a chatear.</CardDescription>
+          <CardDescription>Escoja un nombre de perfil para empezar a chatear.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profile-select">Escoja un perfil</Label>
-              <Select onValueChange={setSelectedProfile} value={selectedProfile}>
-                <SelectTrigger id="profile-select" className="w-full bg-gray-100 hover:bg-gray-200 cursor-pointer">
-                  <SelectValue placeholder="Seleccionar un perfil..." />
-                </SelectTrigger>
-                <SelectContent className="z-index-200 bg-gray-100">
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.username} value={profile.username} className="cursor-pointer hover:bg-gray-200">
-                      {profile.username} - {profile.fullname}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleEnterChat} disabled={!selectedProfile} className="w-full bg-gray-200 hover:bg-gray-300 cursor-pointer border-gray-500 rounded-sm">
-              Ingresar al Chat
-            </Button>
+            <form onSubmit={handleSubmit} className="flex flex-col items-center gap-2">
+              <Input
+                value={username}
+                onChange={(e: any) => handleUsernameChange(e.target.value)}
+                placeholder="Escribe un usuario..."
+                autoComplete="off"
+                className="text-base bg-white"
+              />
+              <Button type="submit" disabled={!isValidUsername} className="w-full bg-gray-200 hover:bg-gray-300 cursor-pointer border-gray-500 rounded-sm">
+                Ingresar al Chat
+              </Button>
+            </form>
           </div>
         </CardContent>
       </Card>

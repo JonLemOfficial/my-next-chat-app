@@ -24,12 +24,13 @@ module.exports = {
       },
       receiver: {
         type: Sequelize.INTEGER,
-        allowNull: false,
-        foreignKey: true,
-        references: {
-          model: 'Users',
-          key: 'id'
-        },
+        allowNull: true,
+        defaultValue: null
+        // foreignKey: true,
+        // references: {
+        //   model: 'Users',
+        //   key: 'id'
+        // },
       },
       sent_at: {
         type: Sequelize.DataTypes.DATE,

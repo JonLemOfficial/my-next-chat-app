@@ -4,10 +4,9 @@ import type { User } from '@/types/user';
 import type { Message } from '@/types/message';
 import type { Chat } from '@/types/chat';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { io, type Socket } from 'socket.io-client';
-import { profiles } from '@/lib/profiles';
 import { ChatContext, type ChatContextType } from '@/hooks/useChat';
 import ChatList from '@/components/chat/ChatList';
 import ActiveChat from '@/components/chat/ActiveChat';
@@ -24,35 +23,88 @@ function ChatPage() {
   const socketRef = useRef<Socket | null>(null);
 
   const [ currentUser, setCurrentUser ] = useState<User | null>(null);
+  const [ isLoadingUsers, setIsLoadingUsers ] = useState<boolean>(true);
+  const [ allUsers, setAllUsers ] = useState<User[]>([]);
   const [ users, setUsers ] = useState<User[]>([]);
   const [ chats, setChats ] = useState<Map<string, Chat>>(new Map());
   const [ activeChatUser, setActiveChatUser ] = useState<User | null>(null);
-  // const [ activeChatMessages, setActiveChatMessages ] = useState<Message[] | null>(null);
+  const [ groupMessages, setGroupMessages ] = useState<Message[]>([]);
+
+  const fetchGlobalHistory = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/api/allMessages', {
+        params: {
+          from: currentUser?.key
+        }
+      });
+
+      if ( response.data && Array.isArray(response.data?.messages) ) {
+        const sorted = response.data.messages.sort(
+          (a: any, b: any) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime()
+        );
+        setGroupMessages(sorted);
+      }
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    }
+  }, []);
 
   useEffect(() => {
-    const profileName = localStorage.getItem('chat-user');
-    const userProfile = profiles.find((p) => p.username === profileName);
+    const fetchUsers = async () => {
+      try {
+        const response = await apiClient.get('/api/allUsers');
+        if ( response.data && Array.isArray(response.data.users) ) {
+          setAllUsers(response.data.users); 
+        }
+      } catch (err) {
+        console.error("Error fetching users", err);
+        setAllUsers([]);
+      } finally {
+        // Marcamos que ya terminó la carga, haya sido exitosa o no
+        setIsLoadingUsers(false);
+      }
+    };
 
-    if ( ! userProfile ) {
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    if ( isLoadingUsers ) return;
+
+    const profileName = localStorage.getItem('chat-user');
+    
+    if ( ! profileName ) {
       router.push('/');
       return;
     }
+    
+    const userProfile = allUsers.find((p) => p.username === profileName);
+
+    if ( ! userProfile ) {
+      console.error("Usuario no encontrado en la base de datos");
+      // Opcional: router.push('/') si quieres forzar relogin
+      return;
+    }
+
+    if ( socketRef.current ) return;
 
     const socket = io({ path: '/api/socket' });
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      const user = { ...userProfile, id: socket.id! };
+      const user = { ...userProfile, key: userProfile?.id, id: socket.id! };
       setCurrentUser(user);
       socket.emit('join', user);
+
+      fetchGlobalHistory();
     });
 
     socket.on('online-users', (onlineUsers: User[]) => {
       setUsers(onlineUsers);
       setChats(prev => {
         const newChats = new Map(prev);
-        onlineUsers.forEach(user => {
-          if ( user.username !== userProfile.username && !newChats.has(user.username) ) {
+        allUsers.forEach(user => {
+          if ( user.username !== userProfile?.username && !newChats.has(user.username) ) {
             newChats.set(user.username, { user, messages: [], unreadCount: 0 });
           }
         });
@@ -63,12 +115,13 @@ function ChatPage() {
 
     socket.on('user-joined', (user: User) => {
       // if ( user.id === socketRef.current?.id ) return;
-      // console.log('User joined:', user);
-      if ( user.username === userProfile.username ) return;
+      if ( user.username === userProfile?.username ) return;
+
       setUsers(prev => {
         if ( prev.find(u => u.username === user.username) ) return prev;
         return [ ...prev, user ];
       });
+
       setChats(prev => {
         const newChats = new Map(prev);
         // if ( user.id !== socket.id && !newChats.has(user.id) ) {
@@ -88,143 +141,37 @@ function ChatPage() {
 
     socket.on('user-left', (user: User) => {
       setUsers(prev => prev.filter(u => u.id !== user.id));
-      setChats(prev => {
-        const newChats = new Map(prev);
-        newChats.delete(user.id);
-        return newChats;
-      });
-      setActiveChatUser(prev => (prev?.id === user.id ? null : prev));
+      // setChats(prev => {
+      //   const newChats = new Map(prev);
+      //   newChats.delete(user.id);
+      //   return newChats;
+      // });
+      // setActiveChatUser(prev => (prev?.id === user.id ? null : prev));
       // toast({ title: 'User Left', description: `${user.username} has left the chat.` });
+    });
+
+    socket.on('receive-message', (message: Message) => {
+      setGroupMessages(prev => {
+        // Evitar duplicados por ID
+        if ( prev.some(m => m.id === message.id) ) return prev;
+        
+        const updated = [...prev, message];
+        return updated.sort((a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime());
+      });
     });
 
     return () => {
       socketRef.current?.disconnect();
+      socketRef.current = null;
     };
-  }, [ router, toast ]);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if ( ! socket || ! currentUser ) return;
-
-    const handleReceiveMessage = (message: Message) => {
-      setChats(prev => {
-        const newChats = new Map(prev);
-        const partner = message.sender.username === currentUser.username ? message.receiver : message.sender;
-        const chat = newChats.get(partner.username) ?? { user: partner, messages: [], unreadCount: 0 };
-        
-        const updatedMessages = [ ...chat.messages, message].sort((a, b) => a.sent_at - b.sent_at );
-        let newUnreadCount = chat.unreadCount;
-        if ( activeChatUser?.username !== partner.username ) {
-          newUnreadCount++;
-        }
-
-        newChats.set(partner.username, { ...chat, messages: updatedMessages, unreadCount: newUnreadCount });
-        return newChats;
-      });
-    };
-
-    // const getMessages = async (chatUser: User) => {
-    //   try {
-    //     const response = await apiClient.post('/api/messages', {
-    //       from: currentUser?.key,
-    //       to: chatUser.key,
-    //     });
-
-    //     return response.data?.messages || [];
-    //   } catch (error) {
-    //     console.error('Error fetching messages from API:', error);
-    //     return [];
-    //   }
-    // };
-
-    // getMessages(activeChatUser!);
-
-    socket.on('receive-message', handleReceiveMessage);
-
-    return () => {
-      socket.off('receive-message', handleReceiveMessage);
-    };
-  }, [ currentUser, activeChatUser ]);
-
-  const fetchMessages = async (targetUser: User) => {
-    if ( ! currentUser ) return;
-
-    try {
-      const response = await apiClient.get('/api/messages', {
-        params: {
-          from: currentUser.key,
-          to: targetUser.key,
-        }
-      });
-
-      if ( response.data && Array.isArray(response.data?.messages) ) {
-        const dbMessages: Message[] = response.data?.messages;
-        // console.log("Fetched messages:", dbMessages);
-
-        setChats(prev => {
-          const newChats = new Map(prev);
-          const chat = newChats.get(targetUser.username);
-          if ( chat ) {
-            newChats.set(targetUser.username, {
-              ...chat,
-              messages: dbMessages.sort((a: any, b: any) => a.sent_at - b.sent_at),
-              unreadCount: 0
-            });
-          }
-          return newChats;
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      toast({ 
-        title: "Error", 
-        description: "No se pudo cargar el historial de mensajes.", 
-        variant: "destructive" 
-      });
-    }
-  };
-
-  const setActiveChatUserAndFetch = async (user: User | null) => {
-    // 1. Cambio visual inmediato (UX Rápida)
-    setActiveChatUser(user);
-    
-    if ( user ) {
-      // 2. Reseteo inmediato del contador de no leídos
-      setChats(prev => {
-        const newChats = new Map(prev);
-        const chat = newChats.get(user.username);
-        if ( chat ) {
-          newChats.set(user.username, { ...chat, unreadCount: 0 });
-        }
-        return newChats;
-      });
-
-      // 3. Llamada asíncrona a la base de datos
-      await fetchMessages(user);
-    }
-  };
-
-  // const setActiveChatMessagesAndClearPreviousMessages = (sender: number, receiver: number) => {
-
-  //   // setActiveChatUser(user);
-  //   // if ( user ) {
-  //   //   setChats(prev => {
-  //   //     const newChats = new Map(prev);
-  //   //     const chat = newChats.get(user.username);
-  //   //     if ( chat ) {
-  //   //       newChats.set(user.username, { ...chat, unreadCount: 0 });
-  //   //     }
-  //   //     return newChats;
-  //   //   });
-  //   // }
-  // };
+  }, [ router, toast, isLoadingUsers, allUsers, fetchGlobalHistory ]);
 
   const sendMessage = async (text: string) => {
-    if ( socketRef.current && currentUser && activeChatUser ) {
+    if ( socketRef.current && currentUser ) {
       try {
         const response = await apiClient.post('/api/messages/add', {
           from: currentUser.key,
-          to: activeChatUser.key,
+          to: null,
           message: text,
         });
 
@@ -232,7 +179,7 @@ function ChatPage() {
           // alert(response.data.msg);
           socketRef.current.emit('send-message', {
             sender: currentUser,
-            receiver: activeChatUser,
+            receiver: { username: 'GlobalGroup' },
             text,
           });
         } else {
@@ -254,10 +201,12 @@ function ChatPage() {
     currentUser,
     users: users.filter(u => u.username !== currentUser?.username),
     chats: filteredChats,
-    activeChat: activeChatUser ? chats.get(activeChatUser.username) || null : null,
-    setActiveChatUser: setActiveChatUserAndFetch,
-    // setActiveChatMessages: setActiveChatMessagesAndClearPreviousMessages,
-    // messages: activeChatMessages || [],
+    activeChat: {
+      user: { username: 'GlobalGroup', key: 'global' } as any,
+      messages: groupMessages,
+      unreadCount: 0
+    },
+    setActiveChatUser: async () => {},
     sendMessage,
   };
 
